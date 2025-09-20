@@ -38,6 +38,7 @@ classifiers = [
 # ---- Main dependencies ----
 
 dependencies = [
+    "mypy>=1.18.2",
 ]
 
 
@@ -50,8 +51,12 @@ dev = [
     "ruff>=0.11.9",
     "codespell>=2.4.1",
     "rich>=14.0.0",
-    "basedpyright>=1.29.1",
     "funlog>=0.2.1",
+    "jinja2>=3.1.6",
+    "more-itertools>=10.8.0",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [project.scripts]
@@ -128,32 +133,14 @@ ignore = [
     "ISC002", # https://docs.astral.sh/ruff/rules/multi-line-implicit-string-concatenation/
 ]
 
-[tool.basedpyright]
-# BasedPyright currently seems like the best type checker option, much faster
-# than mypy and with a good extension for VSCode/Cursor.
-# https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright
-# https://docs.basedpyright.com/latest/configuration/config-files/#sample-pyprojecttoml-file
-include = ["src", "tests", "devtools"]
-# By default BasedPyright is very strict, so you almost certainly want to disable
-# some of the rules.
-# First, these turn off warnings about (yes) how you ignore warnings:
-reportIgnoreCommentWithoutRule = false
-reportUnnecessaryTypeIgnoreComment = false
-# A few typically noisy warnings are next.
-# How many you enable is up to you. The first few are off by default, but you can
-# comment/uncomment these as desired:
-reportMissingTypeStubs = false
-reportUnusedCallResult = false
-reportAny = false
-reportExplicitAny = false
-reportImplicitStringConcatenation = false
-reportUnreachable = false
-# reportPrivateImportUsage = false
-# reportPrivateLocalImportUsage = false
-# reportMissingImports = false
-# reportUnnecessaryIsInstance = false
-# reportUnknownVariableType = false
-# reportUnknownArgumentType = false
+[tool.mypy]
+# MyPy configuration
+# https://mypy.readthedocs.io/en/stable/config_file.html
+files = ["src", "tests", "devtools"]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
 
 [tool.codespell]
 # Add here as needed:
@@ -170,3 +157,7 @@ testpaths = [
 ]
 norecursedirs = []
 filterwarnings = []
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+minversion = "6.0"
+addopts = "-n auto --cov-report=term-missing"
