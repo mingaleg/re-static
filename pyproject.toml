@@ -48,6 +48,7 @@ dependencies = [
 dev = [
     "pytest>=8.3.5",
     "pytest-sugar>=1.0.0",
+    "pytest-mypy-plugins>=3.1.2",
     "ruff>=0.11.9",
     "codespell>=2.4.1",
     "rich>=14.0.0",
@@ -141,6 +142,7 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+plugins = ["re_static.mypy_plugin.plugin"]
 
 [tool.codespell]
 # Add here as needed:

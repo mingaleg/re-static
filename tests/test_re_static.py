@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
-from re_static.re_static import StaticRegex
+from re_static import StaticRegex
 from re_static.types import SENTINEL
 
 

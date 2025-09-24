@@ -59,5 +59,8 @@ jobs:
       - name: Run linting
         run: uv run python devtools/lint.py
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run unit tests
+        run: uv run pytest --ignore=tests/test_mypy_plugin_integration.yml
+
+      - name: Run mypy plugin integration tests
+        run: uv run pytest tests/test_mypy_plugin_integration.yml -v

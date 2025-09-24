@@ -13,19 +13,15 @@ class ReStaticMypyPlugin(Plugin):
     _class_groups: ClassVar[dict[str, list[Group]]] = {}
 
     def get_base_class_hook(self, fullname: str) -> Callable[[ClassDefContext], None] | None:
-        if fullname == "re_static_mypy.static_regex.StaticRegex":
+        if fullname == "re_static.re_static.StaticRegex":
             return self._static_regex_class_hook
         return None
 
     def get_attribute_hook(self, fullname: str) -> Callable[[AttributeContext], Type] | None:
-        # Only hook into specific StaticRegex subclass attributes
-        if fullname.startswith("re_static_mypy.static_regex.StaticRegex") and "." in fullname:
-            attr_name = fullname.split(".")[-1]
-            # Check if this could be a regex group attribute
-            for groups in self._class_groups.values():
-                for group in groups:
-                    if group.name == attr_name:
-                        return self._attribute_hook
+        # Return the hook for any attribute access - let _attribute_hook do the filtering
+        # _attribute_hook will check if the class is a registered StaticRegex subclass
+        if "." in fullname:
+            return self._attribute_hook
         return None
 
     def _static_regex_class_hook(self, ctx: ClassDefContext) -> None:
@@ -38,16 +34,18 @@ class ReStaticMypyPlugin(Plugin):
         # Look for REGEX class variable in the class definition
         regex_pattern = None
         for stmt in cls.defs.body:
-            if hasattr(stmt, "lvalues") and stmt.lvalues:
-                for lvalue in stmt.lvalues:
-                    if hasattr(lvalue, "name") and lvalue.name == "REGEX":
-                        if hasattr(stmt, "rvalue") and isinstance(stmt.rvalue, StrExpr):
-                            regex_pattern = stmt.rvalue.value
-                            break
-            elif hasattr(stmt, "name") and stmt.name == "REGEX":
-                if hasattr(stmt, "rvalue") and isinstance(stmt.rvalue, StrExpr):
-                    regex_pattern = stmt.rvalue.value
-                    break
+            if lvalues := getattr(stmt, "lvalues", None):
+                for lvalue in lvalues:
+                    if getattr(lvalue, "name", None) == "REGEX" and isinstance(
+                        rvalue := getattr(stmt, "rvalue", None), StrExpr
+                    ):
+                        regex_pattern = rvalue.value
+                        break
+            elif getattr(stmt, "name", None) == "REGEX" and isinstance(
+                rvalue := getattr(stmt, "rvalue", None), StrExpr
+            ):
+                regex_pattern = rvalue.value
+                break
 
         if not regex_pattern:
             return
@@ -85,50 +83,43 @@ class ReStaticMypyPlugin(Plugin):
         from mypy.types import Instance, NoneType, TypeType, UnionType
 
         # Get the attribute name
-        if hasattr(ctx.context, "name"):
-            attr_name = ctx.context.name
-        elif hasattr(ctx.context, "member"):
-            attr_name = ctx.context.member
-        else:
-            return ctx.default_attr_type
+        if not (attr_name := getattr(ctx.context, "name", None)):
+            if not (attr_name := getattr(ctx.context, "member", None)):
+                return ctx.default_attr_type
 
         # Check if this is a class access (type[SomeClass].attribute)
         if isinstance(ctx.type, TypeType):
             # This is class attribute access (e.g., StaticRegexFoo.digits)
             if isinstance(ctx.type.item, Instance):
-                class_fullname = ctx.type.item.type.fullname
-                if class_fullname in self._class_groups:
-                    groups = self._class_groups[class_fullname]
-                    # Check if this is a group attribute
-                    for group in groups:
-                        if group.name == attr_name:
-                            # This is a regex group attribute being accessed on the class
-                            ctx.api.fail(
-                                f'"{attr_name}" is an instance attribute for regex groups, '
-                                f"not a class attribute. Use an instance of {ctx.type.item.type.name} instead.",
-                                ctx.context,
-                            )
-                            return ctx.default_attr_type
+                # Walk the MRO to find if this is a regex group attribute
+                for base_class in ctx.type.item.type.mro:
+                    if groups := self._class_groups.get(base_class.fullname):
+                        # Check if this is a group attribute
+                        for group in groups:
+                            if group.name == attr_name:
+                                # This is a regex group attribute being accessed on the class
+                                ctx.api.fail(
+                                    f'"{attr_name}" is an instance attribute for regex groups, '
+                                    f"not a class attribute. Use an instance of {ctx.type.item.type.name} instead.",
+                                    ctx.context,
+                                )
+                                return ctx.default_attr_type
 
         # Handle instance attribute access
         elif isinstance(ctx.type, Instance):
-            class_fullname = ctx.type.type.fullname
+            # Walk the MRO to find regex groups in this class or any parent class
+            for base_class in ctx.type.type.mro:
+                # Check if this class in the MRO has registered groups
+                if groups := self._class_groups.get(base_class.fullname):
+                    # Look for this attribute in the groups
+                    for group in groups:
+                        if group.name == attr_name:
+                            str_type = ctx.api.named_generic_type("builtins.str", [])
 
-            # Check if we have group information for this class
-            if class_fullname in self._class_groups:
-                groups = self._class_groups[class_fullname]
-
-                # Look for this attribute in the groups
-                for group in groups:
-                    if group.name == attr_name:
-                        api = ctx.api
-                        str_type = api.named_generic_type("builtins.str", [])
-
-                        if group.always_present:
-                            return str_type
-                        else:
-                            none_type = NoneType()
-                            return UnionType([str_type, none_type], line=ctx.context.line)
+                            if group.always_present:
+                                return str_type
+                            else:
+                                return UnionType([str_type, NoneType()], line=ctx.context.line)
 
         return ctx.default_attr_type
 

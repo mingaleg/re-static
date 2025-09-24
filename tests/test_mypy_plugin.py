@@ -24,7 +24,7 @@ class TestReStaticMypyPlugin:
         assert plugin_class == ReStaticMypyPlugin
 
     def test_get_base_class_hook_returns_hook_for_static_regex(self):
-        hook = self.plugin_instance.get_base_class_hook("re_static_mypy.static_regex.StaticRegex")
+        hook = self.plugin_instance.get_base_class_hook("re_static.re_static.StaticRegex")
         assert hook is not None
         assert hook == self.plugin_instance._static_regex_class_hook
 
@@ -33,8 +33,10 @@ class TestReStaticMypyPlugin:
         assert hook is None
 
     def test_get_attribute_hook_returns_none_for_non_static_regex(self):
+        # The hook is now returned for any attribute access and does filtering in _attribute_hook
         hook = self.plugin_instance.get_attribute_hook("some.other.class.attribute")
-        assert hook is None
+        assert hook is not None
+        assert hook == self.plugin_instance._attribute_hook
 
     def test_get_attribute_hook_returns_hook_for_group_attribute(self):
         # Set up mock group data
@@ -150,21 +152,28 @@ class TestAttributeHook:
         context = Mock(spec=AttributeContext)
         context.context = Mock()
         context.context.name = attr_name
+        context.context.line = 1
         context.default_attr_type = Mock()
         context.api = Mock()
+
+        # Create mock TypeInfo for MRO
+        mock_type_info = Mock()
+        mock_type_info.fullname = "test.TestClass"
+        mock_type_info.name = "TestClass"
+        # MRO includes the class itself and object
+        mock_object = Mock()
+        mock_object.fullname = "builtins.object"
+        mock_type_info.mro = [mock_type_info, mock_object]
 
         if is_class_access:
             # Mock class access (TypeType)
             context.type = Mock(spec=TypeType)
             context.type.item = Mock(spec=Instance)
-            context.type.item.type = Mock()
-            context.type.item.type.fullname = "test.TestClass"
-            context.type.item.type.name = "TestClass"
+            context.type.item.type = mock_type_info
         else:
             # Mock instance access
             context.type = Mock(spec=Instance)
-            context.type.type = Mock()
-            context.type.type.fullname = "test.TestClass"
+            context.type.type = mock_type_info
 
         return context
 
@@ -244,7 +253,13 @@ class TestAttributeHook:
 
     def test_attribute_hook_unknown_class(self):
         context = self.create_mock_attribute_context("some_attr", is_class_access=False)
-        context.type.type.fullname = "unknown.Class"
+        # Change to an unknown class
+        unknown_type = Mock()
+        unknown_type.fullname = "unknown.Class"
+        mock_object = Mock()
+        mock_object.fullname = "builtins.object"
+        unknown_type.mro = [unknown_type, mock_object]
+        context.type.type = unknown_type
 
         result = self.plugin_instance._attribute_hook(context)
 
