@@ -4,7 +4,6 @@ from funlog import log_calls
 from rich import get_console, reconfigure
 from rich import print as rprint
 
-# Update as needed.
 SRC_PATHS = ["src"]
 DEV_PATHS = ["tests", "devtools"]
 DOC_PATHS = ["README.md"]

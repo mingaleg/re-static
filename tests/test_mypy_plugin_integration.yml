@@ -2,7 +2,7 @@
 # MyPy Plugin Integration Tests for re-static
 #
 # These tests use pytest-mypy-plugins to verify type checking behavior.
-# Run with: uv run pytest tests/main.yml -v
+# Run with: uv run pytest tests/test_mypy_plugin_integration.yml -v
 #
 # Test format documentation:
 # https://github.com/typeddjango/pytest-mypy-plugins
@@ -233,6 +233,14 @@
     result = EmailRegex.match("test@example.com")
     if result:
         value: str = result  # E: Incompatible types in assignment (expression has type "EmailRegex", variable has type "str")  [assignment]
+
+- case: invalid_regex_pattern_error
+  mypy_config: *mypy_config
+  main: |
+    from re_static import StaticRegex
+
+    class BadRegex(StaticRegex):  # E: Invalid regex pattern: unterminated character set at position 8  [misc]
+        REGEX = r"(?P<bad>[unclosed"
 
 ###############################################################################
 # METHOD CALL ERRORS

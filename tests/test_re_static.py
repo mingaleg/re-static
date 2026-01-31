@@ -43,7 +43,6 @@ class TestStaticRegexInitSubclass:
         class TestRegexNoPattern(StaticRegex):
             pass
 
-        # Should not have REGEX_COMPILED if REGEX is not defined
         assert not hasattr(TestRegexNoPattern, "REGEX_COMPILED")
 
 
@@ -307,7 +306,6 @@ class TestEdgeCases:
 
         result = NoGroupsRegex.match("123")
         assert result is not None
-        # Should not have any attributes set
 
     def test_overlapping_matches_findall(self):
         class OverlapRegex(StaticRegex):

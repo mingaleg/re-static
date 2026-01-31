@@ -4,9 +4,9 @@
 
 `re-static` provides a powerful way to work with regular expressions in Python that gives you:
 - **Type safety**: Named capture groups become typed attributes on result objects
-- **IDE support**: Full autocomplete and type checking for regex groups
-- **Runtime safety**: Compile-time validation of regex patterns
-- **Zero runtime overhead**: Patterns are compiled once at class definition time
+- **MyPy integration**: Named capture groups are type-checked via a custom MyPy plugin
+- **Early validation**: Regex patterns are validated at class definition time
+- **Low runtime overhead**: Patterns are compiled once at class definition time
 
 ## Installation
 
@@ -67,12 +67,14 @@ class OptionalRegex(StaticRegex):
     REGEX = r"(?P<required>\w+)(?P<optional>\d+)?"
 
 match = OptionalRegex.match("hello123")
-print(match.required)  # Type: str (always present)
-print(match.optional)  # Type: str | None (might be None)
+if match:
+    print(match.required)  # Type: str (always present)
+    print(match.optional)  # Type: str | None (might be None)
 
 match = OptionalRegex.match("hello")
-print(match.required)  # "hello"
-print(match.optional)  # None
+if match:
+    print(match.required)  # "hello"
+    print(match.optional)  # None
 ```
 
 ### Position and Bounds Support
@@ -95,7 +97,8 @@ class CaseInsensitiveRegex(StaticRegex):
     REGEX_FLAGS = re.IGNORECASE
 
 match = CaseInsensitiveRegex.match("HELLO")  # Works!
-print(match.word)  # "HELLO"
+if match:
+    print(match.word)  # "HELLO"
 ```
 
 ## MyPy Integration
@@ -108,10 +111,8 @@ plugins = ["re_static.mypy_plugin.plugin"]
 ```
 
 With the plugin enabled, MyPy will:
-- Validate that your regex patterns are syntactically correct
 - Automatically infer types for named capture groups
-- Provide intelligent autocomplete in your IDE
-- Catch attempts to access non-existent groups at compile time
+- Catch attempts to access non-existent groups
 - Enforce that regex group attributes are only accessed on instances, not classes
 
 ## Advanced Usage
@@ -133,19 +134,21 @@ if match:
 
 ## Error Handling
 
-If a regex pattern has syntax errors, they'll be caught at class definition time:
+If a regex pattern has syntax errors, they'll be caught in two ways:
+
+1. **At class definition time** (runtime): `re.compile()` raises `re.error`
+2. **When running MyPy**: the plugin reports an error diagnostic
 
 ```python
-# This will raise a compile-time error:
 class BadRegex(StaticRegex):
-    REGEX = r"(?P<bad>[unclosed"  # SyntaxError!
+    REGEX = r"(?P<bad>[unclosed"  # re.error at runtime, mypy error at type-check time
 ```
 
 ## Performance
 
 - Regex patterns are compiled once when the class is defined, not on each use
-- Basically zero runtime overhead compared to using `re.compile()` directly
-- Type checking happens at build time with MyPy, not at runtime
+- Low runtime overhead: patterns are compiled once, and each match creates a lightweight instance with group attributes
+- Type checking happens when running MyPy, not at runtime
 
 ## Development
 
